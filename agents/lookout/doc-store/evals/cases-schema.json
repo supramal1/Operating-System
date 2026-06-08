@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://charlie-oscar.local/agents/lookout/cases-schema.json",
+  "title": "Lookout Cornerstone-Relevance Eval Case",
+  "description": "Eval cases for Lookout, the daily orienting agent. Tests Lookout's judgment about WHICH cornerstone items genuinely connect to today's calendar and Drive activity, and which should be omitted despite keyword overlap. Each case provides a fully specified day (calendar events, cornerstone state at run time, drive delta) plus the human-authored expected_surface and expected_omit lists that make Relevance scorable without vibes. A case scores well if Lookout's brief covers expected_surface, avoids everything in expected_omit, stays restrained on sparse days, and owns its gaps. MC-6 (client isolation) is binding: cross-client surfaces cap Relevance at 0.",
+  "type": "object",
+  "required": ["case_id", "description", "input", "expected_surface", "expected_omit", "scoring_notes"],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "description": "Stable identifier, e.g. lookout-rel-01",
+      "pattern": "^lookout-[a-z0-9-]+-[0-9]{2}$"
+    },
+    "description": {
+      "type": "string",
+      "description": "One-line description of what this case stress-tests"
+    },
+    "input": {
+      "type": "object",
+      "description": "The full state Lookout is handed at run time: the date, the day's calendar, the cornerstone state, and the Drive delta since the last run.",
+      "required": ["date", "calendar", "cornerstone_state", "drive_delta"],
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "The morning the brief is run for (ISO date)"
+        },
+        "calendar": {
+          "type": "array",
+          "description": "Calendar events for the day, ordered by start time.",
+          "items": {
+            "type": "object",
+            "required": ["id", "summary", "description", "start", "end", "attendees", "organizer_email", "location"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string"},
+              "summary": {"type": "string"},
+              "description": {"type": "string"},
+              "start": {"type": "string", "format": "date-time"},
+              "end": {"type": "string", "format": "date-time"},
+              "attendees": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["email", "display_name", "response_status"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "email": {"type": "string"},
+                    "display_name": {"type": "string"},
+                    "response_status": {
+                      "type": "string",
+                      "enum": ["accepted", "tentative", "declined", "needsAction"]
+                    }
+                  }
+                }
+              },
+              "organizer_email": {"type": "string"},
+              "location": {"type": "string"}
+            }
+          }
+        },
+        "cornerstone_state": {
+          "type": "array",
+          "description": "The cornerstone facts, notes, and conversations available to Lookout at run time. Includes plausible-but-irrelevant items so the relevance judgment has teeth.",
+          "items": {
+            "type": "object",
+            "required": ["key", "type", "client_scope", "topic", "body"],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string",
+                "description": "Stable key of the cornerstone fact, note, or conversation"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["fact", "note", "conversation"]
+              },
+              "client_scope": {
+                "type": "string",
+                "description": "client_id (e.g. nike, adidas, vodafone, ikea, diageo) or 'agency-wide' for cross-client or internal items"
+              },
+              "topic": {"type": "string"},
+              "body": {"type": "string"}
+            }
+          }
+        },
+        "drive_delta": {
+          "type": "object",
+          "description": "Drive changes since the previous run, split by change type.",
+          "required": ["added", "modified", "removed"],
+          "additionalProperties": false,
+          "properties": {
+            "added": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["drive_file_id", "name", "parents", "modifiedTime", "summary"],
+                "additionalProperties": false,
+                "properties": {
+                  "drive_file_id": {"type": "string"},
+                  "name": {"type": "string"},
+                  "parents": {"type": "array", "items": {"type": "string"}},
+                  "modifiedTime": {"type": "string", "format": "date-time"},
+                  "summary": {"type": "string", "description": "One-line description of what this doc is"}
+                }
+              }
+            },
+            "modified": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["drive_file_id", "name", "parents", "modifiedTime", "summary"],
+                "additionalProperties": false,
+                "properties": {
+                  "drive_file_id": {"type": "string"},
+                  "name": {"type": "string"},
+                  "parents": {"type": "array", "items": {"type": "string"}},
+                  "modifiedTime": {"type": "string", "format": "date-time"},
+                  "summary": {"type": "string"}
+                }
+              }
+            },
+            "removed": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["drive_file_id", "name"],
+                "additionalProperties": false,
+                "properties": {
+                  "drive_file_id": {"type": "string"},
+                  "name": {"type": "string"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "expected_surface": {
+      "type": "array",
+      "description": "Items that a strong Lookout brief MUST surface. Each entry pairs a cornerstone key or drive_file_id with the calendar event it should tie to (or 'unattached' for drive-only signal or standalone memory items). Reason explains why this hook is real.",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["key_or_id", "tied_to", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "key_or_id": {"type": "string"},
+          "tied_to": {
+            "type": "string",
+            "description": "Calendar event id this surfaces against, or 'unattached' for drive-only or standalone memory items"
+          },
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "expected_omit": {
+      "type": "array",
+      "description": "Items present in cornerstone_state or drive_delta that a strong Lookout brief MUST NOT surface today, despite keyword overlap or surface plausibility. At least one entry per case must be something a naive keyword-matcher would mistakenly surface — that is the rubric's teeth.",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["key_or_id", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "key_or_id": {"type": "string"},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "scoring_notes": {
+      "type": "string",
+      "description": "Free-text guidance for the human scorer — what specific judgment call this case is stress-testing, and what to watch for when reading Lookout's output."
+    }
+  }
+}

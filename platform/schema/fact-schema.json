@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://charlieoscar.com/co-platform/schema/fact-schema/0.1",
+  "title": "Cornerstone Fact Envelope",
+  "description": "Canonical schema for a fact written to Cornerstone memory. Validated at MC-3 (schema gate). Status and supersession are derived from Zep's native temporal model per MC-5 and are NOT envelope fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "authority", "author", "client", "topic", "source", "created", "key", "value"],
+  "properties": {
+    "type": {
+      "description": "What kind of memory this is. Maps to Zep edge type (fact_name) — drives first-class filtering.",
+      "type": "string",
+      "enum": ["decision", "fact", "preference", "playbook", "draft"],
+      "x-zep-mapping": "fact_name (SCREAMING_SNAKE_CASE)"
+    },
+    "authority": {
+      "description": "The level of decision authority that produced this memory.",
+      "type": "string",
+      "enum": ["HOD", "staff", "agent"]
+    },
+    "author": {
+      "description": "Identifier of the principal who wrote the fact. Email for humans, agent name for agents (though MC-2 forbids direct agent writes in slice-1).",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "client": {
+      "description": "Client scope. Use the literal string 'agency' for agency-wide facts; a client slug (lowercase, kebab-case) for client-specific facts. Never null. (See MC-6 reconciliation Q4.)",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "examples": ["agency", "nike-synthetic", "adidas-synthetic"]
+    },
+    "topic": {
+      "description": "The queryable subject of the fact. ONE topic per fact (MC-4). Stable across supersession (MC-5): superseded versions of the same fact share the same (client, topic). kebab-case.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "examples": ["q2-budget", "campaign-launch-date", "brand-tone-of-voice"]
+    },
+    "source": {
+      "description": "Where the fact came from. Free-form short identifier — manual, slack:<channel>, email, doc:<drive-id>, etc.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "created": {
+      "description": "ISO 8601 UTC timestamp of when this fact was written. Maps to Zep's valid_at on the edge.",
+      "type": "string",
+      "format": "date-time",
+      "x-zep-mapping": "valid_at"
+    },
+    "key": {
+      "description": "Cornerstone domain key — the short stable identifier used for retrieval by exact key. Different from topic: topic is the SUBJECT, key is the SLOT. For most facts key == topic; they diverge when one topic has multiple slots (e.g. topic=q2-budget, key=q2-budget-amount vs q2-budget-approver).",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "value": {
+      "description": "The fact content. MUST include a temporal anchor (date, quarter, or 'as of' marker) per C01 R1. Plain text only.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "x-zep-edge-attribute-mapping": {
+    "comment": "Zep edge_attributes has a hard cap of 10. The 9 envelope fields below fit; one slot reserved for future. fact_name (Zep edge type) is derived from `type`; valid_at is derived from `created`. status and supersedes are derived at read-time from Zep's native invalid_at filter (per MC-5).",
+    "attributes_used": [
+      "mc_type",
+      "mc_authority",
+      "mc_author",
+      "mc_client",
+      "mc_topic",
+      "mc_source",
+      "cs_key",
+      "cs_value",
+      "cs_namespace"
+    ],
+    "attributes_reserved": ["_future_slot_1"],
+    "fact_name_pattern": "{type.upper()} where type ∈ enum",
+    "valid_at_source": "created",
+    "filter_for_current_facts": "search_filters.invalid_at = [[{ \"==\": null }], [{ \">\": now }]]"
+  },
+  "x-derived-fields": {
+    "status": {
+      "description": "Not stored. Derived from Zep edge state: 'current' if invalid_at is null or in the future; 'superseded' otherwise.",
+      "derivation": "current iff edge.invalid_at IS NULL OR edge.invalid_at > now"
+    },
+    "supersedes_uuid": {
+      "description": "Not stored as a fact attribute. The supersession chain is reconstructed from the Cornerstone audit log (which records {action: 'supersede', old_edge_uuid, new_edge_uuid, ...}).",
+      "derivation": "join audit log by (client, topic) ordered by created DESC"
+    }
+  },
+  "x-validation-errors": {
+    "MC3_SCHEMA_INVALID": "Returned by api/routes/memory.py when payload fails this schema. Body includes field path, expected, actual."
+  },
+  "examples": [
+    {
+      "_comment": "An agency-wide playbook fact, HOD-authored, currently valid.",
+      "type": "playbook",
+      "authority": "HOD",
+      "author": "malik.roberts@gmail.com",
+      "client": "agency",
+      "topic": "memory-write-cadence",
+      "source": "manual",
+      "created": "2026-06-03T11:30:00Z",
+      "key": "memory_write_cadence",
+      "value": "Write a fact at every meaningful business decision, not every conversation, as of 2026-06-03."
+    },
+    {
+      "_comment": "A client-scoped decision, HOD-authored.",
+      "type": "decision",
+      "authority": "HOD",
+      "author": "malik.roberts@gmail.com",
+      "client": "nike-synthetic",
+      "topic": "q2-budget",
+      "source": "slack:#nike-account",
+      "created": "2026-06-03T11:35:00Z",
+      "key": "nike_q2_budget",
+      "value": "Nike Q2 2026 budget approved at £100k on 2026-06-03."
+    },
+    {
+      "_comment": "A superseded version of the above — same (client, topic), older created timestamp. Stored in Zep; the newer fact's existence is what makes this 'superseded'.",
+      "type": "decision",
+      "authority": "HOD",
+      "author": "malik.roberts@gmail.com",
+      "client": "nike-synthetic",
+      "topic": "q2-budget",
+      "source": "slack:#nike-account",
+      "created": "2026-04-19T09:00:00Z",
+      "key": "nike_q2_budget",
+      "value": "Nike Q2 2026 budget set at £75k on 2026-04-19."
+    }
+  ]
+}
