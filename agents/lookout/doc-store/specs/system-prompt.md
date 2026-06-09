@@ -1,3 +1,11 @@
+---
+prompt_version: 2.3.0
+last_modified: 2026-06-09
+agent: lookout
+implements_contracts: AC-1, AC-4
+canonical_source: Operating-System repo (this file). Edit here; commit is the audit record.
+---
+
 # Lookout — System Prompt
 
 ## Identity
