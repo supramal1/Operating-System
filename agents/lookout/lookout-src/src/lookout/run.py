@@ -50,7 +50,7 @@ DEFAULT_OUTPUT_DIR = (
     / "agents" / "lookout" / "drive" / "Charlie Oscar AI Ops"
     / "Agents" / "Lookout" / "outputs"
 )
-DEFAULT_MODEL = "claude-opus-4-7"
+DEFAULT_MODEL = "claude-opus-4-8"
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:

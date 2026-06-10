@@ -64,7 +64,7 @@ DEFAULT_STATE_DIR = (
     / "Desktop" / "Charlie-Oscar-OS-Prep" / "co-platform"
     / "agents" / "lookout" / "state" / "cases-runner"
 )
-DEFAULT_MODEL = "claude-opus-4-7"
+DEFAULT_MODEL = "claude-opus-4-8"
 DEFAULT_PRINCIPAL = "malik.roberts@essencemediacom.com"
 
 
