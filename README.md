@@ -1,3 +1,11 @@
+# ARCHIVED (2026-06-11)
+
+This repository's code and FULL history now live in [ai-operating-system-monorepo](https://github.com/supramal1/ai-operating-system-monorepo) at platform/ (contracts, cookbook, architecture, schema) plus agents/lookout/ and agents/scout/ (top layer).
+See MIGRATION.md there for the commit ledger and the deployed-image map.
+Read-only from here; production images built from this repo keep running until each service's next natural redeploy.
+
+---
+
 # Operating-System
 
 Canonical home of Charlie Oscar's CO OS governing documents.
